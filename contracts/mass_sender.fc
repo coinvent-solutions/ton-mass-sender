@@ -19,12 +19,13 @@ const int ton_for_fee = 100000000;
     .end_cell());
 }
 
-() send_transfer(slice dest, int value) impure inline {
+() send_transfer(slice dest, int value, slice comment) impure inline {
     send_raw_message(begin_cell()
         .store_uint(0x10, 6)
         .store_slice(dest)
         .store_coins(value)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_slice(comment)
     .end_cell(), 1);
 }
 
@@ -61,7 +62,7 @@ const int ton_for_fee = 100000000;
         if (f?) {
             int value = val~load_coins();
             slice dest = val~load_msg_addr();
-            send_transfer(dest, value);
+            send_transfer(dest, value, val);
             (last_key, val, f?) = messages.udict_get_next?(16, last_key);
         }
     }
@@ -71,7 +72,7 @@ const int ton_for_fee = 100000000;
         send_excesses(admin);
     } else {
         save_data(seed, total, length - 254, last_key - 1, initiated, admin, messages);
-        send_transfer(my_address(), ton_for_fee);
+        send_transfer(my_address(), ton_for_fee, "");
     }
 }
 

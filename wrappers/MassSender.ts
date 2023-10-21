@@ -15,6 +15,7 @@ import {
 export type Msg = {
     value: bigint;
     destination: Address;
+    comment?: string;
 };
 export type MassSenderConfig = {
     messages: Msg[];
@@ -25,7 +26,7 @@ export type MassSenderConfig = {
 function createMessageValue(): DictionaryValue<Msg> {
     return {
         serialize: (src, buidler) => {
-            buidler.storeCoins(src.value).storeAddress(src.destination);
+            buidler.storeCoins(src.value).storeAddress(src.destination).storeStringRefTail(src.comment? src.comment: "");
         },
         parse: (src) => {
             return { value: src.loadCoins(), destination: src.loadAddress() };

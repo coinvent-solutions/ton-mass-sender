@@ -1,5 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton-community/sandbox';
-import { Address, Cell, toNano } from 'ton-core';
+import { Address, Cell, beginCell, toNano } from 'ton-core';
 import { MassSender, Msg } from '../wrappers/MassSender';
 import '@ton-community/test-utils';
 import { compile } from '@ton-community/blueprint';
@@ -264,5 +264,31 @@ describe('MassSender', () => {
                 value: toNano(i + 1),
             });
         }
+    });
+
+    it('should send one message with comment', async () => {
+        let massSender = blockchain.openContract(
+            MassSender.createFromConfig(
+                {
+                    messages: [{ value: toNano('1'), destination: randomAddresses[0], comment: "It's a test comment, lol"}],
+                    admin: deployer.address,
+                },
+                code
+            )
+        );
+        const result = await massSender.sendDeploy(deployer.getSender(), toNano('1'));
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: massSender.address,
+            success: true,
+        });
+        expect(result.transactions).toHaveTransaction({
+            from: massSender.address,
+            to: randomAddresses[0],
+            value: toNano('1'),
+            body: beginCell().storeStringRefTail("It's a test comment, lol").endCell(),
+        });
+        expect((await blockchain.getContract(massSender.address)).balance).toEqual(0n);
+        expect(await massSender.getHasFinished()).toBeTruthy();
     });
 });
