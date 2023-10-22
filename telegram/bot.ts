@@ -184,11 +184,11 @@ async function main(): Promise<void> {
                     try {
                         rawMessages = parse(await (await fetch(await bot.getFileLink(msg.document!.file_id))).text(), {
                             skip_empty_lines: true,
-                        }).reduce((map: { [key: string]: bigint }, obj: string[2]) => {
+                        }).reduce((map: { [key: string]: { value: bigint; comment: string } }, obj: string[2]) => {
                             if (map[obj[0]] !== undefined) {
                                 throw new CsvError(obj[0]);
                             }
-                            map[obj[0]] = toNano(obj[1]);
+                            map[obj[0]] = { value: toNano(obj[1]), comment: '' };
                             return map;
                         }, {});
                     } catch (e) {
