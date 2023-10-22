@@ -156,13 +156,20 @@ async function main(): Promise<void> {
                                 throw new JsonError();
                             }
                             rawMessages[key]['value'] = toNano(rawMessages[key]['value']);
+                            if (rawMessages[key]['comment'].length > 1000) {
+                                bot.sendMessage(
+                                    chatId,
+                                    'The comment must be not more then 1000 letters\\. Example:\n`{\n  "EQBIhPuWmjT7fP-VomuTWseE8JNWv2q7QYfsVQ1IZwnMk8wL": { "value": "0.1", "comment" : ""},\n  "EQBKgXCNLPexWhs2L79kiARR1phGH1LwXxRbNsCFF9doc2lN": { "value": "1.2", "comment": "Tsc4 reward"}\n}`',
+                                    { parse_mode: 'MarkdownV2' }
+                                );
+                            }
                         });
                     } catch (e) {
                         console.log(e, e instanceof JsonError);
                         if (e instanceof JsonError) {
                             await bot.sendMessage(
                                 chatId,
-                                'The values must be provided as strings\\. Example:\n`{\n  "EQBIhPuWmjT7fP-VomuTWseE8JNWv2q7QYfsVQ1IZwnMk8wL": { "vaue": "0.1", "comment" : ""},\n  "EQBKgXCNLPexWhs2L79kiARR1phGH1LwXxRbNsCFF9doc2lN": { "value": "1.2", "comment": "Tsc4 reward"}\n}`',
+                                'The values must be provided as strings\\. Example:\n`{\n  "EQBIhPuWmjT7fP-VomuTWseE8JNWv2q7QYfsVQ1IZwnMk8wL": { "value": "0.1", "comment" : ""},\n  "EQBKgXCNLPexWhs2L79kiARR1phGH1LwXxRbNsCFF9doc2lN": { "value": "1.2", "comment": "Tsc4 reward"}\n}`',
                                 { parse_mode: 'MarkdownV2' }
                             );
                         } else {
@@ -177,12 +184,11 @@ async function main(): Promise<void> {
                     try {
                         rawMessages = parse(await (await fetch(await bot.getFileLink(msg.document!.file_id))).text(), {
                             skip_empty_lines: true,
-                        }).reduce((map: { [key: string]: { value: bigint; comment: string } }, obj: string[3]) => {
+                        }).reduce((map: { [key: string]: bigint }, obj: string[2]) => {
                             if (map[obj[0]] !== undefined) {
                                 throw new CsvError(obj[0]);
                             }
-                            map[obj[0]]['value'] = toNano(obj[1]);
-                            map[obj[0]]['comment'] = obj[2];
+                            map[obj[0]] = toNano(obj[1]);
                             return map;
                         }, {});
                     } catch (e) {
@@ -250,7 +256,7 @@ async function main(): Promise<void> {
                 if (!msg.text?.match(/^([a-zA-Z0-9-_]+: -?\d+(\.\d+)?\n*)+$/g)) {
                     await bot.sendMessage(
                         msg.chat.id,
-                        `*👋 Hello and welcome to the TON Mass Sender bot\\!*\nI'm here to help you send Toncoin to multiple addresses at once\\. You can provide me with a list of addresses in one of the following formats:\n\n*🔹 Plain text*\\: You can send the address, value and comment separated by a comma and a space \\(empty place for no comment\\), with each address on a new line\\. Example:\n\`EQBIhPuWmjT7fP-VomuTWseE8JNWv2q7QYfsVQ1IZwnMk8wL, 0.1, \nEQBKgXCNLPexWhs2L79kiARR1phGH1LwXxRbNsCFF9doc2lN, 1.2, Tsc4 reward\`\n\n*🔹 JSON format*\\: Send a JSON object where each key is an address and the corresponding object has two fields: "value" is the amount to be sent and "comment" with comment to transactions \\("" for no comment\\)\\.\n\n*🔹 CSV format*\\: Send a CSV file where each row contains an address, the corresponding value and comment \\(empty place for no comment\\) separated by a comma\\.\n\nLet's get started\\!`,
+                        `*👋 Hello and welcome to the TON Mass Sender bot\\!*\nI'm here to help you send Toncoin to multiple addresses at once\\. You can provide me with a list of addresses in one of the following formats:\n\n*🔹 Plain text*\\: You can send the address, value and comment separated by a colon and a space, with each address on a new line\\. Example:\n\`EQBIhPuWmjT7fP-VomuTWseE8JNWv2q7QYfsVQ1IZwnMk8wL: 0.1 \nEQBKgXCNLPexWhs2L79kiARR1phGH1LwXxRbNsCFF9doc2lN: 1.2\`\n\n*🔹 JSON format*\\: Send a JSON object where each key is an address and the corresponding object has two fields: "value" is the amount to be sent and "comment" with comment to transactions \\("" for no comment\\)\\.\n\n*🔹 CSV format*\\: Send a CSV file where each row contains an address and the corresponding value separated by a comma\\.\n\nLet's get started\\!`,
                         { parse_mode: 'MarkdownV2' }
                     );
                     return;
@@ -259,21 +265,11 @@ async function main(): Promise<void> {
                 const chatId = msg.chat.id;
 
                 const rawMessagesText = msg.text!.split('\n');
-                const rawMessages = rawMessagesText.filter((t) => t != '').map((t) => t.split(', '));
-
+                const rawMessages = rawMessagesText.filter((t) => t != '').map((t) => t.split(': '));
                 let messages: Msg[] = [];
                 let addressSet = new Set();
                 for (let i = 0; i < rawMessages.length; i++) {
                     const msg = rawMessages[i];
-                    if (msg.length < 3) {
-                        await bot.sendMessage(
-                            chatId,
-                            'The comment at position ' +
-                                (i + 1) +
-                                ' is apsent. To leave a empty comment type comma in the end of stroke.'
-                        );
-                        return;
-                    }
                     const value = toNano(msg[1]);
                     if (value <= 0) {
                         await bot.sendMessage(chatId, 'The value at position ' + (i + 1) + ' is invalid: ' + msg[1]);
@@ -300,11 +296,9 @@ async function main(): Promise<void> {
                         );
                         return;
                     }
-                    let comment = msg[2];
                     messages.push({
                         value,
                         destination,
-                        comment,
                     });
                 }
 
