@@ -270,7 +270,9 @@ describe('MassSender', () => {
         let massSender = blockchain.openContract(
             MassSender.createFromConfig(
                 {
-                    messages: [{ value: toNano('1'), destination: randomAddresses[0], comment: "It's a test comment, lol"}],
+                    messages: [
+                        { value: toNano('1'), destination: randomAddresses[0], comment: "It's a test comment, lol" },
+                    ],
                     admin: deployer.address,
                 },
                 code
@@ -286,7 +288,7 @@ describe('MassSender', () => {
             from: massSender.address,
             to: randomAddresses[0],
             value: toNano('1'),
-            body: beginCell().storeStringRefTail("It's a test comment, lol").endCell(),
+            body: beginCell().storeUint(0, 32).storeStringRefTail("It's a test comment, lol").endCell(),
         });
         expect((await blockchain.getContract(massSender.address)).balance).toEqual(0n);
         expect(await massSender.getHasFinished()).toBeTruthy();
