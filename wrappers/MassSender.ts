@@ -26,10 +26,7 @@ export type MassSenderConfig = {
 function createMessageValue(): DictionaryValue<Msg> {
     return {
         serialize: (src, buidler) => {
-            buidler
-                .storeCoins(src.value)
-                .storeAddress(src.destination)
-                .storeStringRefTail(src.comment ? src.comment : '');
+            buidler.storeCoins(src.value).storeAddress(src.destination).storeStringRefTail(src.comment? src.comment: "");
         },
         parse: (src) => {
             return { value: src.loadCoins(), destination: src.loadAddress() };
@@ -48,11 +45,13 @@ function messagesToDict(messages: Msg[]): Dictionary<number, Msg> {
 export function massSenderConfigToCell(config: MassSenderConfig): Cell {
     return beginCell()
         .storeUint(Date.now(), 64)
+        .storeCoins(
+            config.total !== undefined ? config.total : config.messages.map((msg) => msg.value).reduce((a, b) => a + b)
+        )
         .storeUint(config.messages.length, 16)
         .storeUint(0, 16)
         .storeUint(0, 1)
         .storeAddress(config.admin)
-        .storeUint(0, 2)
         .storeDict(messagesToDict(config.messages))
         .endCell();
 }
@@ -70,15 +69,15 @@ export class MassSender implements Contract {
         return new MassSender(contractAddress(workchain, init), init);
     }
 
-    async sendDeploy(provider: ContractProvider, via: Sender, jetton_wallet: Address) {
+    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
         let s = this.init!.data.asSlice();
         s.loadUint(64);
         s.loadCoins();
         const length = s.loadUint(16);
         await provider.internal(via, {
-            value: BigInt(length + Math.ceil(length / 254)) * toNano('0.1'),
+            value: value + BigInt(length + Math.ceil(length / 254)) * toNano('0.1'),
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: beginCell().storeAddress(jetton_wallet).endCell(),
+            body: Cell.EMPTY,
         });
     }
 
